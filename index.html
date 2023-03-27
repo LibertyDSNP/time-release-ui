@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Time Release Transfer</title>
+    <link rel="stylesheet" href="//unpkg.com/mvp.css@1.12/mvp.css">
+</head>
+
+<body style="padding: 0 20px 10px">
+    <h1>Frequency Time Release Transfer</h1>
+    <p>
+        Does a single period Time Release transfer.
+    </p>
+    <button type="button" id="connectButton">Connect to Wallet</button>
+    <hr />
+    <div style="float:left;width: 50%;">
+        <form id="transferForm" style="display: none;">
+            <label for="txLabel">Transaction Label</label>
+            <input type="text" id="txLabel" name="txLabel"><br>
+            <label for="sender">Sender Address:</label>
+            <select style="width: 100%" id="sender" name="sender"></select>
+            <p>Account Balance: <span id="balance"></span> UNIT</p>
+            <label for="recipient">Recipient Address:</label>
+            <input type="text" id="recipient" name="recipient"><br>
+            <label for="amount">Amount: (in Planck UNITs)</label>
+            <input type="number" id="amount" name="amount">
+            <p>UNIT: <span id="unit"></span></p>
+            <p>milliUNIT: <span id="milliunit"></span></p>
+            <label for="estimatedBlock">Estimated Block:</label>
+            <input type="number" id="estimatedBlock" disabled name="estimatedBlock">
+            <label for="unlockDate">Date:</label>
+            <input type="date" id="unlockDate" name="unlockDate"><br>
+            <button type="submit">Create Transfer</button>
+        </form>
+    </div>
+    <div style="float:left; width: 50%;">
+        <h2>Transaction Log</h2>
+        <ul id="log"></ul>
+    </div>
+    <script type="module" src="./main.js"></script>
+</body>
+
+
+</html>
