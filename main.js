@@ -155,6 +155,7 @@ const postTransaction = (prefix) => (status) => {
     }
 }
 
+// Connect to the wallet and blockchain
 async function connect(event) {
     event.preventDefault();
     await loadApi(document.getElementById("provider").value);
@@ -181,6 +182,7 @@ async function connect(event) {
     document.getElementById("transferForm").style.display = "block";
 }
 
+// Simple display of a new log
 function addLog(msg, prefix) {
     prefix = prefix ? prefix + ": " : "";
     const li = document.createElement("li");
@@ -188,14 +190,15 @@ function addLog(msg, prefix) {
     document.getElementById("log").prepend(li);
 }
 
+// Update the various derived values from fields
 function triggerUpdates() {
     updateBlockNumber();
     updateUnitValues();
     updateBalance();
 }
 
+// Start this up with event listeners
 async function init() {
-    await loadApi(document.getElementById("provider").value);
     document.getElementById("amount").addEventListener("input", updateUnitValues);
     document.getElementById("transferForm").addEventListener("submit", createTransfer);
     document.getElementById("connectButton").addEventListener("click", connect);
