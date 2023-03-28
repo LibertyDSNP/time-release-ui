@@ -2,20 +2,25 @@ import { WsProvider, ApiPromise } from 'https://cdn.jsdelivr.net/npm/@polkadot/a
 import { checkAddress, encodeAddress } from 'https://cdn.jsdelivr.net/npm/@polkadot/util-crypto@10.2.1/+esm';
 import { web3Accounts, web3Enable, web3FromAddress } from 'https://cdn.jsdelivr.net/npm/@polkadot/extension-dapp@0.45.3/+esm';
 
-const PREFIX = 42;
+let PREFIX = 42;
+let UNIT = "UNIT";
 
 let singletonApi;
 
+// Load up the api for the given provider uri
 async function loadApi(providerUri) {
     if (!providerUri && singletonApi) return singletonApi;
     const provider = new WsProvider(providerUri);
     singletonApi = await ApiPromise.create({ provider });
     await singletonApi.isReady;
-    const { specVersion, specName, chain } = await singletonApi.rpc.system.chain();
-    console.log({ specVersion, specName, chain });
+    const chain = await singletonApi.rpc.system.properties();
+    PREFIX = Number(chain.ss58Format.toString());
+    UNIT = chain.tokenSymbol.toHuman();
+    document.querySelectorAll(".unit").forEach(e => e.innerHTML = UNIT);
     return singletonApi;
 }
 
+// Update the balance display
 async function updateBalance() {
     const balanceDisplay = document.getElementById("balance");
     balanceDisplay.innerHTML = "...";
@@ -24,6 +29,7 @@ async function updateBalance() {
     const resp = await api.query.system.account(sender);
     const balance = resp.data.free.toString();
 
+    // Some basic formatting of the bigint
     if (balance === "0") {
         balanceDisplay.innerHTML = "0.0";
     } else if (balance.length >= 8) {
@@ -33,6 +39,7 @@ async function updateBalance() {
     }
 }
 
+// Estimate the block number by date
 async function updateBlockNumber(date) {
     const estimateDisplay = document.getElementById("estimatedBlock");
     estimateDisplay.value = null;
@@ -46,19 +53,21 @@ async function updateBlockNumber(date) {
         return;
     }
 
+    // Lock it down to this pinpoint
     const currentBlockNumber = 14832916;
     const currentBlockDate = new Date("2023-03-27 21:14:06Z");
 
     // Get the timestamp for noon UTC on the given date
     const noonUTC = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12));
 
-    // Calculate the estimated block number for noon UTC on the given date
+    // Calculate the estimated block number for noon UTC on the given date (6s block time)
     const estimatedBlockNumber = currentBlockNumber + Math.round((+noonUTC - +currentBlockDate) / 1000 / 6);
     estimateDisplay.value = estimatedBlockNumber;
 
     return estimatedBlockNumber;
 }
 
+// Input is in Planck, but we want to show the UNIT amount as well
 function updateUnitValues() {
     const amountInput = document.getElementById("amount");
     const amount = Number(amountInput.value);
@@ -67,16 +76,17 @@ function updateUnitValues() {
 
     // Update UNIT display
     const unitValue = amount / 1e8;
-    unitDisplay.textContent = `${unitValue.toFixed(8)} UNIT`;
+    unitDisplay.textContent = `${unitValue.toFixed(8)} ${UNIT}`;
 
     // Update milliUNIT display
     const milliUnitValue = amount / 1e5;
-    milliUnitDisplay.textContent = `${milliUnitValue.toFixed(5)} mUNIT`;
+    milliUnitDisplay.textContent = `${milliUnitValue.toFixed(5)} m${UNIT}`;
 }
 
-function populateFromPaste(csvString) {
+// Pasting into the Transaction label will get us a
+function populateFromPaste(data) {
     // [label,recipient,amount,date]
-    const [label, recipient, amount, date] = csvString.split("\t").map(x => x.trim());
+    const [label, recipient, amount, date] = data.map(x => x.trim());
 
     // Populate the form fields
     const txLabel = document.getElementById('txLabel');
@@ -93,16 +103,17 @@ function populateFromPaste(csvString) {
     triggerUpdates();
 }
 
+// Do the actual transfer
 async function createTransfer(event) {
     event.preventDefault();
     const sender = document.getElementById("sender").value;
     const txLabel = document.getElementById("txLabel").value;
     let recipient = document.getElementById("recipient").value;
-    const amount = document.getElementById("amount").value;
+    const amount = parseInt(document.getElementById("amount").value);
     const estimatedBlock = document.getElementById("estimatedBlock").value;
-
-    if (!sender || !checkAddress(recipient, PREFIX)[0] || amount < 100 || estimatedBlock < 100) {
-        alert("Invalid values");
+    const addressCheck = checkAddress(recipient, PREFIX);
+    if (!addressCheck[0]) {
+        alert(`Recipient address invalid: ${addressCheck[1] || "unknown"}`);
         return;
     }
 
@@ -112,35 +123,35 @@ async function createTransfer(event) {
 
     // Create the schedule
     const schedule = {
-        start: estimatedBlock,//api.registry.createType("BlockNumber", api.genesisHash),
-        period: 1, //api.registry.createType("BlockNumber", vestingPeriod),
-        periodCount: 1,
+        start: estimatedBlock,
+        period: 1, // Must be > 0, but we want to have just a one time thing.
+        periodCount: 1, // Must be > 0, but we want to have just a one time thing.
         perPeriod: api.registry.createType("Balance", amount),
     };
 
-    const tx = api.tx.timeRelease.transfer(recipient, schedule);
-    const injector = await web3FromAddress(sender);
-    debugger;
     try {
+        const tx = api.tx.timeRelease.transfer(recipient, schedule);
+        const injector = await web3FromAddress(sender);
         const sending = tx.signAndSend(sender, { signer: injector.signer }, postTransaction(txLabel));
-        addLog(`${txLabel}: Sending time release to ${recipient} for ${amount} from ${sender}.`);
+        addLog(`Sending time release to <code>${recipient}</code> for ${amount.toLocaleString()} from <code>${sender}</code>.`, txLabel);
         await sending;
     } catch (e) {
-        addLog(e.toString());
+        addLog(e.toString(), `${txLabel} ERROR`);
     }
 }
 
+// Function for after the transaction has been submitted
 const postTransaction = (prefix) => (status) => {
     // Log the transaction status
     if (status.isInBlock) {
-        addLog(`${prefix}: Transaction (${status.txHash.toHex()}) included at block number ${status.status.asInBlock.toHuman()}`);
+        addLog(`Transaction <code>${status.txHash.toHex()}</code> included at block hash <code>${status.status.asInBlock.toHuman()}</code>`, prefix);
     } else if (status.isFinalized) {
-        addLog(`${prefix}: Transaction (${status.txHash.toHex()}) finalized at block hash ${status.status.asFinalized.toHuman()}`);
+        addLog(`Transaction <code>${status.txHash.toHex()}</code> finalized at block hash<code>${status.status.asFinalized.toHuman()}</code>`, prefix);
     } else if (status.isError) {
-        addLog(`${prefix}: Transaction error: ${status.status.toHuman()}`);
+        addLog(`Transaction error: ${status.status.toHuman()}`, prefix);
     } else {
         const msg = typeof status.status.toHuman() === "string" ? status.status.toHuman() : JSON.stringify(status.status.toHuman());
-        addLog(`${prefix}: Transaction status: ${msg}`);
+        addLog(`Transaction status: ${msg}`, prefix);
     }
 }
 
@@ -156,7 +167,6 @@ async function connect(event) {
 
     const emptyOption = document.createElement("option");
     emptyOption.value = "";
-    emptyOption.disabled = true;
     emptyOption.text = "Select One";
     senderSelect.add(emptyOption);
 
@@ -171,10 +181,11 @@ async function connect(event) {
     document.getElementById("transferForm").style.display = "block";
 }
 
-function addLog(msg) {
+function addLog(msg, prefix) {
+    prefix = prefix ? prefix + ": " : "";
     const li = document.createElement("li");
-    li.innerHTML = `${Date.now().toLocaleString()} - ${msg}`;
-    document.getElementById("log").appendChild(li);
+    li.innerHTML = `${(new Date()).toLocaleString()} - ${prefix}${msg}`;
+    document.getElementById("log").prepend(li);
 }
 
 function triggerUpdates() {
@@ -192,12 +203,15 @@ async function init() {
     document.getElementById("sender").addEventListener("change", updateBalance);
     document.getElementById("provider").addEventListener("input", () => { document.getElementById("transferForm").style.display = "none"; });
     document.getElementById("txLabel").addEventListener("paste", async (e) => {
-        e.preventDefault();
         // Get the clipboard data as plain text
         const text = (e.clipboardData || (await navigator.clipboard.readText())).getData('text/plain');
 
-        // Populate the form fields from the clipboard data
-        populateFromPaste(text);
+        const values = text.split("\t");
+        if (values.length >= 4) {
+            e.preventDefault();
+            // Populate the form fields from the clipboard data
+            populateFromPaste(values);
+        }
     });
     triggerUpdates();
 }
