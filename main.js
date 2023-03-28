@@ -1,5 +1,5 @@
 import { WsProvider, ApiPromise } from 'https://cdn.jsdelivr.net/npm/@polkadot/api@10.2.1/+esm';
-import { checkAddress, encodeAddress } from 'https://cdn.jsdelivr.net/npm/@polkadot/util-crypto@10.2.1/+esm';
+import { checkAddress, createKeyMulti, encodeAddress, blake2AsHex } from 'https://cdn.jsdelivr.net/npm/@polkadot/util-crypto@10.2.1/+esm';
 import { web3Accounts, web3Enable, web3FromAddress } from 'https://cdn.jsdelivr.net/npm/@polkadot/extension-dapp@0.45.3/+esm';
 
 let PREFIX = 42;
@@ -41,7 +41,7 @@ async function updateBalance() {
 
 // Estimate the block number by date
 async function updateBlockNumber(date) {
-    const estimateDisplay = document.getElementById("estimatedBlock");
+    const estimateDisplay = document.getElementById("actualBlock");
     estimateDisplay.value = null;
 
     if (!(date instanceof Date)) {
@@ -61,10 +61,10 @@ async function updateBlockNumber(date) {
     const noonUTC = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12));
 
     // Calculate the estimated block number for noon UTC on the given date (6s block time)
-    const estimatedBlockNumber = currentBlockNumber + Math.round((+noonUTC - +currentBlockDate) / 1000 / 6);
-    estimateDisplay.value = estimatedBlockNumber;
+    const actualBlockNumber = currentBlockNumber + Math.round((+noonUTC - +currentBlockDate) / 1000 / 6);
+    estimateDisplay.value = actualBlockNumber;
 
-    return estimatedBlockNumber;
+    return actualBlockNumber;
 }
 
 // Input is in Planck, but we want to show the UNIT amount as well
@@ -103,6 +103,38 @@ function populateFromPaste(data) {
     triggerUpdates();
 }
 
+function multisigProcess(doAlert = false) {
+    document.getElementById("multisigAddress").value = "...";
+    const isMultisig = document.getElementById("multisigCheckbox").checked;
+    const multisigThreshold = parseInt(document.getElementById("multisigThreshold").value);
+    const multisigSignatories = document.getElementById("multisigSignatories").value.split("\n").map(x => x.trim()).filter(x => !!x);
+    multisigSignatories.push(document.getElementById("sender").value);
+
+    if (isMultisig) {
+        if (multisigThreshold > multisigSignatories.length) {
+            if (doAlert) alert(`Multisig setup is invalid. Wrong threshold or bad signatories.`);
+            return;
+        }
+        try {
+            multisigSignatories.forEach(signatory => {
+                const check = checkAddress(signatory, PREFIX);
+                if (!check[0]) {
+                    if (doAlert) alert(`Signatory address "${signatory}" is invalid: ${check[1] || "unknown"}`);
+                    return;
+                }
+            });
+
+            const multisigAddress = encodeAddress(createKeyMulti(multisigSignatories, multisigThreshold), PREFIX);
+            document.getElementById("multisigAddress").value = multisigAddress;
+            return [multisigAddress, multisigThreshold, multisigSignatories];
+        } catch (e) {
+            if (doAlert) alert(`Multisig setup is invalid. Wrong threshold or bad signatories: ${e.toString()}`);
+            return;
+        }
+    }
+    return;
+}
+
 // Do the actual transfer
 async function createTransfer(event) {
     event.preventDefault();
@@ -110,12 +142,16 @@ async function createTransfer(event) {
     const txLabel = document.getElementById("txLabel").value;
     let recipient = document.getElementById("recipient").value;
     const amount = parseInt(document.getElementById("amount").value);
-    const estimatedBlock = document.getElementById("estimatedBlock").value;
+    const actualBlock = document.getElementById("actualBlock").value;
     const addressCheck = checkAddress(recipient, PREFIX);
     if (!addressCheck[0]) {
         alert(`Recipient address invalid: ${addressCheck[1] || "unknown"}`);
         return;
     }
+
+    const isMultisig = document.getElementById("multisigCheckbox").checked;
+
+    const [multisigAddress, multisigThreshold, multisigSignatories] = isMultisig ? multisigProcess(true) : undefined;
 
     recipient = encodeAddress(recipient, PREFIX);
 
@@ -123,18 +159,49 @@ async function createTransfer(event) {
 
     // Create the schedule
     const schedule = {
-        start: estimatedBlock,
+        start: actualBlock,
         period: 1, // Must be > 0, but we want to have just a one time thing.
         periodCount: 1, // Must be > 0, but we want to have just a one time thing.
         perPeriod: api.registry.createType("Balance", amount),
     };
 
     try {
-        const tx = api.tx.timeRelease.transfer(recipient, schedule);
+        const transferCall = api.tx.timeRelease.transfer(recipient, schedule);
         const injector = await web3FromAddress(sender);
-        const sending = tx.signAndSend(sender, { signer: injector.signer }, postTransaction(txLabel));
-        addLog(`Sending time release to <code>${recipient}</code> for ${amount.toLocaleString()} from <code>${sender}</code>.`, txLabel);
-        await sending;
+
+        const callData = transferCall.method.toHex();
+        const logIt = [
+            `<b>Parameters</b>: <code>Start: ${actualBlock}, Period: 1, Period Count: 1, Per Period: ${amount}</code>`,
+            `<b>Call Hash</b>: <code>${blake2AsHex(callData)}</code>`,
+            `<b>Call Data</b>: <code>${callData}</code>`,
+        ];
+
+        if (isMultisig) {
+            const maxWeight = {
+                weight: 1_000_000_000,
+            }
+            const tx = api.tx.multisig.asMulti(multisigThreshold, multisigSignatories.filter(x => x != sender), null, transferCall, maxWeight);
+            const sending = tx.signAndSend(sender, { signer: injector.signer }, postTransaction(txLabel));
+            addLog([
+                `Sending time release`,
+                `<b>Recipient</b>: <code>${recipient}</code>`,
+                `<b>Amount</b>: <code>${amount.toLocaleString()}</code>`,
+                `<b>From Multisig</b>: <code>${multisigAddress}</code>`,
+                `<b>Sender</b>: <code>${sender}</code>`,
+                ...logIt],
+                txLabel);
+            await sending;
+        } else {
+            const sending = transferCall.signAndSend(sender, { signer: injector.signer }, postTransaction(txLabel));
+            addLog([
+                `Sending time release`,
+                `<b>Recipient</b>: <code>${recipient}</code>`,
+                `<b>Amount</b>: <code>${amount.toLocaleString()}</code>`,
+                `<b>Sender</b>: <code>${sender}</code>`,
+                ...logIt],
+                txLabel);
+            await sending;
+        }
     } catch (e) {
         addLog(e.toString(), `${txLabel} ERROR`);
     }
@@ -185,8 +252,24 @@ async function connect(event) {
 // Simple display of a new log
 function addLog(msg, prefix) {
     prefix = prefix ? prefix + ": " : "";
+    if (typeof msg === "string") {
+        msg = [msg];
+    }
+
     const li = document.createElement("li");
-    li.innerHTML = `${(new Date()).toLocaleString()} - ${prefix}${msg}`;
+    const ul = document.createElement("ul");
+
+    let head = msg.shift();
+    li.innerHTML = `${(new Date()).toLocaleString()} - ${prefix}${head}`;
+
+    while (head = msg.shift()) {
+        const liHead = document.createElement("li");
+        liHead.innerHTML = head;
+        ul.append(liHead);
+    }
+
+    li.append(ul);
+
     document.getElementById("log").prepend(li);
 }
 
@@ -195,6 +278,7 @@ function triggerUpdates() {
     updateBlockNumber();
     updateUnitValues();
     updateBalance();
+    multisigProcess(false);
 }
 
 // Start this up with event listeners
@@ -203,7 +287,10 @@ async function init() {
     document.getElementById("transferForm").addEventListener("submit", createTransfer);
     document.getElementById("connectButton").addEventListener("click", connect);
     document.getElementById("unlockDate").addEventListener("input", updateBlockNumber);
-    document.getElementById("sender").addEventListener("change", updateBalance);
+    document.getElementById("sender").addEventListener("change", () => {
+        updateBalance();
+        multisigProcess(false);
+    });
     document.getElementById("provider").addEventListener("input", () => { document.getElementById("transferForm").style.display = "none"; });
     document.getElementById("txLabel").addEventListener("paste", async (e) => {
         // Get the clipboard data as plain text
@@ -216,6 +303,8 @@ async function init() {
             populateFromPaste(values);
         }
     });
+    document.getElementById("multisigSignatories").addEventListener("input", () => multisigProcess(false));
+    document.getElementById("multisigThreshold").addEventListener("input", () => multisigProcess(false));
     triggerUpdates();
 }
 
