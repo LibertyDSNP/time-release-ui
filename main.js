@@ -7,6 +7,17 @@ let UNIT = "UNIT";
 
 let singletonApi;
 
+const RELAY_CHAIN_TIME = {
+    "90": { // Polkadot
+        block: 14885653,
+        date: new Date("2023-03-31 13:12:30Z"),
+    },
+    "42": { // Rococo and local
+        block: 4752207,
+        date: new Date("2023-03-31 13:13:12Z"),
+    }
+}
+
 // Load up the api for the given provider uri
 async function loadApi(providerUri) {
     if (!providerUri && singletonApi) return singletonApi;
@@ -54,8 +65,13 @@ async function updateBlockNumber(date) {
     }
 
     // Lock it down to this pinpoint
-    const currentBlockNumber = 14832916;
-    const currentBlockDate = new Date("2023-03-27 21:14:06Z");
+    const network = RELAY_CHAIN_TIME[PREFIX];
+    if (!network) {
+        console.error(`Unable to find relay chain date data for ${PREFIX}`);
+        return;
+    }
+    const currentBlockNumber = network.block;
+    const currentBlockDate = network.date;
 
     // Get the timestamp for noon UTC on the given date
     const noonUTC = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12));
