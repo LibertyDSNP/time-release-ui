@@ -6,6 +6,7 @@ let PREFIX = 42;
 let UNIT = "UNIT";
 
 let singletonApi;
+let singletonProvider;
 
 const RELAY_CHAIN_TIME = {
     "90": { // Polkadot
@@ -20,15 +21,25 @@ const RELAY_CHAIN_TIME = {
 
 // Load up the api for the given provider uri
 async function loadApi(providerUri) {
+    // Singleton
     if (!providerUri && singletonApi) return singletonApi;
-    if (providerUri && singletonApi) {
-        await singletonApi.disconnect();
-    }
+    // Just asking for the singleton, but don't have it
     if (!providerUri) {
         return null;
     }
-    const provider = new WsProvider(providerUri);
-    singletonApi = await ApiPromise.create({ provider });
+    // Handle disconnects
+    if (providerUri) {
+        if (singletonApi) {
+            await singletonApi.disconnect();
+        } else if (singletonProvider) {
+            await singletonProvider.disconnect();
+        }
+    }
+
+    // Singleton Provider because it starts trying to connect here.
+    singletonProvider = new WsProvider(providerUri);
+    singletonApi = await ApiPromise.create({ provider: singletonProvider });
+
     await singletonApi.isReady;
     const chain = await singletonApi.rpc.system.properties();
     PREFIX = Number(chain.ss58Format.toString());
