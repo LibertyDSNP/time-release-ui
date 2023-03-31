@@ -24,6 +24,9 @@ async function loadApi(providerUri) {
     if (providerUri && singletonApi) {
         await singletonApi.disconnect();
     }
+    if (!providerUri) {
+        return null;
+    }
     const provider = new WsProvider(providerUri);
     singletonApi = await ApiPromise.create({ provider });
     await singletonApi.isReady;
@@ -40,6 +43,9 @@ async function updateBalance() {
     balanceDisplay.innerHTML = "...";
     const sender = document.getElementById("sender").value;
     const api = await loadApi();
+    if (!api) {
+        return;
+    }
     const resp = await api.query.system.account(sender);
     const balance = resp.data.free.toString();
 
@@ -139,7 +145,6 @@ function multisigProcess(doAlert = false) {
                 const check = checkAddress(signatory, PREFIX);
                 if (!check[0]) {
                     if (doAlert) alert(`Signatory address "${signatory}" is invalid: ${check[1] || "unknown"}`);
-                    return;
                 }
             });
 
@@ -151,7 +156,6 @@ function multisigProcess(doAlert = false) {
             return;
         }
     }
-    return;
 }
 
 // Do the actual transfer
@@ -302,7 +306,7 @@ function triggerUpdates() {
 }
 
 // Start this up with event listeners
-async function init() {
+function init() {
     document.getElementById("amount").addEventListener("input", updateUnitValues);
     document.getElementById("transferForm").addEventListener("submit", createTransfer);
     document.getElementById("connectButton").addEventListener("click", connect);
