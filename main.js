@@ -21,6 +21,9 @@ const RELAY_CHAIN_TIME = {
 // Load up the api for the given provider uri
 async function loadApi(providerUri) {
     if (!providerUri && singletonApi) return singletonApi;
+    if (providerUri && singletonApi) {
+        await singletonApi.disconnect();
+    }
     const provider = new WsProvider(providerUri);
     singletonApi = await ApiPromise.create({ provider });
     await singletonApi.isReady;
