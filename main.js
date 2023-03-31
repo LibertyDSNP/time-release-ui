@@ -170,8 +170,6 @@ async function createTransfer(event) {
 
     const isMultisig = document.getElementById("multisigCheckbox").checked;
 
-    const [multisigAddress, multisigThreshold, multisigSignatories] = isMultisig ? multisigProcess(true) : undefined;
-
     recipient = encodeAddress(recipient, PREFIX);
 
     const api = await loadApi();
@@ -199,6 +197,9 @@ async function createTransfer(event) {
             const maxWeight = {
                 weight: 1_000_000_000,
             }
+
+            const [multisigAddress, multisigThreshold, multisigSignatories] = multisigProcess(true);
+
             const tx = api.tx.multisig.asMulti(multisigThreshold, multisigSignatories.filter(x => x != sender), null, transferCall, maxWeight);
             const sending = tx.signAndSend(sender, { signer: injector.signer }, postTransaction(txLabel));
             addLog([
