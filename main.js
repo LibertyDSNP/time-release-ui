@@ -1,6 +1,6 @@
-import { WsProvider, ApiPromise } from 'https://cdn.jsdelivr.net/npm/@polkadot/api@10.2.1/+esm';
-import { checkAddress, createKeyMulti, encodeAddress, blake2AsHex } from 'https://cdn.jsdelivr.net/npm/@polkadot/util-crypto@10.2.1/+esm';
-import { web3Accounts, web3Enable, web3FromAddress } from 'https://cdn.jsdelivr.net/npm/@polkadot/extension-dapp@0.45.3/+esm';
+import { WsProvider, ApiPromise } from 'https://cdn.jsdelivr.net/npm/@polkadot/api@10.2.2/+esm';
+import { checkAddress, createKeyMulti, encodeAddress, blake2AsHex } from 'https://cdn.jsdelivr.net/npm/@polkadot/util-crypto@10.2.2/+esm';
+import { web3Accounts, web3Enable, web3FromAddress } from 'https://cdn.jsdelivr.net/npm/@polkadot/extension-dapp@0.45.5/+esm';
 
 let PREFIX = 42;
 let UNIT = "UNIT";
@@ -48,13 +48,35 @@ async function loadApi(providerUri) {
     return singletonApi;
 }
 
-// Update the balance display
-async function updateBalance() {
+// Update the sender balance display
+async function updateSenderBalance() {
     const balanceDisplay = document.getElementById("balance");
     balanceDisplay.innerHTML = "...";
     const sender = document.getElementById("sender").value;
     const api = await loadApi();
-    if (!api) {
+    if (!api || !sender) {
+        return;
+    }
+    const resp = await api.query.system.account(sender);
+    const balance = resp.data.free.toString();
+
+    // Some basic formatting of the bigint
+    if (balance === "0") {
+        balanceDisplay.innerHTML = "0.0";
+    } else if (balance.length >= 8) {
+        balanceDisplay.innerHTML = `${balance.slice(0, -8)}`;
+    } else {
+        balanceDisplay.innerHTML = `0.${balance.slice(-8).padStart(8, '0')}`;
+    }
+}
+
+// Update the multisig balance display
+async function updateMultisigBalance() {
+    const balanceDisplay = document.getElementById("multisigBalance");
+    balanceDisplay.innerHTML = "...";
+    const sender = document.getElementById("multisigAddress").value;
+    const api = await loadApi();
+    if (!api || !sender) {
         return;
     }
     const resp = await api.query.system.account(sender);
@@ -71,7 +93,7 @@ async function updateBalance() {
 }
 
 // Estimate the block number by date
-async function updateBlockNumber(date) {
+function updateBlockNumber(date) {
     const estimateDisplay = document.getElementById("actualBlock");
     estimateDisplay.value = null;
 
@@ -141,6 +163,7 @@ function populateFromPaste(data) {
 
 function multisigProcess(doAlert = false) {
     document.getElementById("multisigAddress").value = "...";
+    document.getElementById("multisigBalance").innerHTML = "...";
     const isMultisig = document.getElementById("multisigCheckbox").checked;
     const multisigThreshold = parseInt(document.getElementById("multisigThreshold").value);
     const multisigSignatories = document.getElementById("multisigSignatories").value.split("\n").map(x => x.trim()).filter(x => !!x);
@@ -161,6 +184,7 @@ function multisigProcess(doAlert = false) {
 
             const multisigAddress = encodeAddress(createKeyMulti(multisigSignatories, multisigThreshold), PREFIX);
             document.getElementById("multisigAddress").value = multisigAddress;
+            updateMultisigBalance();
             return [multisigAddress, multisigThreshold, multisigSignatories];
         } catch (e) {
             if (doAlert) alert(`Multisig setup is invalid. Wrong threshold or bad signatories: ${e.toString()}`);
@@ -312,7 +336,7 @@ function addLog(msg, prefix) {
 function triggerUpdates() {
     updateBlockNumber();
     updateUnitValues();
-    updateBalance();
+    updateSenderBalance();
     multisigProcess(false);
 }
 
@@ -323,7 +347,7 @@ function init() {
     document.getElementById("connectButton").addEventListener("click", connect);
     document.getElementById("unlockDate").addEventListener("input", updateBlockNumber);
     document.getElementById("sender").addEventListener("change", () => {
-        updateBalance();
+        updateSenderBalance();
         multisigProcess(false);
     });
     document.getElementById("provider").addEventListener("input", () => { document.getElementById("transferForm").style.display = "none"; });
