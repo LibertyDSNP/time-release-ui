@@ -234,6 +234,8 @@ async function createTransfer(event) {
         periodCount: 1, // Must be > 0, but we want to have just a one time thing.
         perPeriod: api.registry.createType("Balance", amount),
     };
+    const spinner = document.getElementById("txProcessing");
+    spinner.style.display = "block";
 
     try {
         const transferCall = api.tx.timeRelease.transfer(recipient, schedule);
@@ -275,20 +277,25 @@ async function createTransfer(event) {
                 txLabel);
             await sending;
         }
+
     } catch (e) {
         addLog(e.toString(), `${txLabel} ERROR`);
+        spinner.style.display = "none";
     }
 }
 
 // Function for after the transaction has been submitted
 const postTransaction = (prefix) => (status) => {
+    const spinner = document.getElementById("txProcessing");
     // Log the transaction status
     if (status.isInBlock) {
         addLog(`Transaction <code>${status.txHash.toHex()}</code> included at block hash <code>${status.status.asInBlock.toHuman()}</code>`, prefix);
     } else if (status.isFinalized) {
         addLog(`Transaction <code>${status.txHash.toHex()}</code> finalized at block hash<code>${status.status.asFinalized.toHuman()}</code>`, prefix);
+        spinner.style.display = "none";
     } else if (status.isError) {
         addLog(`Transaction error: ${status.status.toHuman()}`, prefix);
+        spinner.style.display = "none";
     } else {
         const msg = typeof status.status.toHuman() === "string" ? status.status.toHuman() : JSON.stringify(status.status.toHuman());
         addLog(`Transaction status: ${msg}`, prefix);

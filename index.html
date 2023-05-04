@@ -17,6 +17,34 @@
             display: block;
         }
 
+        /* Spinner */
+        .loader {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: var(--color-accent);
+            box-shadow: 32px 0 var(--color-accent), -32px 0 var(--color-accent);
+            position: relative;
+            animation: flash 1s ease-out infinite alternate;
+            margin-left: 90px;
+        }
+
+        @keyframes flash {
+            0% {
+                background-color: var(--color-link);
+                box-shadow: 32px 0 var(--color-link), -32px 0 var(--color-accent);
+            }
+
+            50% {
+                background-color: var(--color-accent);
+                box-shadow: 32px 0 var(--color-link), -32px 0 var(--color-link);
+            }
+
+            100% {
+                background-color: var(--color-link);
+                box-shadow: 32px 0 var(--color-accent), -32px 0 var(--color-link);
+            }
+        }
     </style>
 </head>
 
@@ -43,7 +71,7 @@
         <a href="#" style="font-size: small;" id="copyTemplate">Copy Template</a>
         <input type="text" id="txLabel" name="txLabel"
             placeholder="Paste spreadsheet here [label, recipient, amount, date, multisig1, multisig2,...]">
-            <br>
+        <br>
         <label for="sender">Signing Wallet Address:</label>
         <select style="width: 100%" id="sender" name="sender" required></select>
         <p>Account Balance: <span id="balance"></span> <span class="unit">UNIT</span></p>
@@ -70,11 +98,13 @@
         <label for="unlockDate">Generate Block from Date:</label>
         <input type="date" id="unlockDate" name="unlockDate" required>
         <label for="actualBlock">Actual Relay Chain Block:</label>
-        <a target="_blank" style="font-size: small; display: none;" href="https://polkadot.subscan.io/block/" id="subscanLink">View Estimated Block on Subscan</a>
+        <a target="_blank" style="font-size: small; display: none;" href="https://polkadot.subscan.io/block/"
+            id="subscanLink">View Estimated Block on Subscan</a>
         <input type="number" id="actualBlock" name="actualBlock">
         <br>
         <br>
         <button type="submit">Create Transfer</button>
+        <span id="txProcessing" class="loader"></span>
     </form>
     <div style="float:left; width: 50%;">
         <h2>Transaction Log</h2>
