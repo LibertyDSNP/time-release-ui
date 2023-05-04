@@ -45,6 +45,7 @@
                 box-shadow: 32px 0 var(--color-accent), -32px 0 var(--color-link);
             }
         }
+
     </style>
 </head>
 
@@ -102,13 +103,15 @@
             id="subscanLink">View Estimated Block on Subscan</a>
         <input type="number" id="actualBlock" name="actualBlock">
         <br>
-        <br>
-        <button type="submit">Create Transfer</button>
         <span id="txProcessing" class="loader"></span>
+        <br>
+        <button type="submit" id="createTransferButton">Create Transfer</button>
     </form>
     <div style="float:left; width: 50%;">
+        <button type="button" id="copyToSpreadsheet" style="display:none; float: right">To Clipboard</button>
         <h2>Transaction Log</h2>
         <ul id="log"></ul>
+        <button type="button" id="clearLog">Clear</button>
     </div>
     <script type="module" src="./main.js"></script>
 </body>

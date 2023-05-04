@@ -8,6 +8,9 @@ let UNIT = "UNIT";
 let singletonApi;
 let singletonProvider;
 
+// Simple place to dump log data that is then able to be sent to a clipboard
+let loggedData = {};
+
 const RELAY_CHAIN_TIME = {
     "90": { // Polkadot
         seconds: 6,
@@ -221,6 +224,8 @@ async function createTransfer(event) {
         return;
     }
 
+    inProgress(true);
+
     const isMultisig = document.getElementById("multisigCheckbox").checked;
 
     recipient = encodeAddress(recipient, PREFIX);
@@ -234,17 +239,16 @@ async function createTransfer(event) {
         periodCount: 1, // Must be > 0, but we want to have just a one time thing.
         perPeriod: api.registry.createType("Balance", amount),
     };
-    const spinner = document.getElementById("txProcessing");
-    spinner.style.display = "block";
 
     try {
         const transferCall = api.tx.timeRelease.transfer(recipient, schedule);
         const injector = await web3FromAddress(sender);
 
         const callData = transferCall.method.toHex();
+        const callHash = blake2AsHex(callData);
         const logIt = [
             `<b>Parameters</b>: <code>Start: ${actualBlock}, Period: 1, Period Count: 1, Per Period: ${amount}</code>`,
-            `<b>Call Hash</b>: <code>${blake2AsHex(callData)}</code>`,
+            `<b>Call Hash</b>: <code>${callHash}</code>`,
             `<b>Call Data</b>: <code>${callData}</code>`,
         ];
 
@@ -256,7 +260,17 @@ async function createTransfer(event) {
             const [multisigAddress, multisigThreshold, multisigSignatories] = multisigProcess(true);
 
             const tx = api.tx.multisig.asMulti(multisigThreshold, multisigSignatories.filter(x => x != sender), null, transferCall, maxWeight);
-            const sending = tx.signAndSend(sender, { signer: injector.signer }, postTransaction(txLabel));
+            const sending = tx.signAndSend(sender, { signer: injector.signer }, postTransaction(txLabel, callHash));
+            loggedData[callHash] = {
+                recipient,
+                amount: amount.toLocaleString(),
+                sender: multisigAddress,
+                relayBlockUnlock: actualBlock,
+                callHash,
+                callData,
+                status: "Sending",
+                finalizedBlock: "unknown",
+            };
             addLog([
                 `Sending time release`,
                 `<b>Recipient</b>: <code>${recipient}</code>`,
@@ -267,7 +281,17 @@ async function createTransfer(event) {
                 txLabel);
             await sending;
         } else {
-            const sending = transferCall.signAndSend(sender, { signer: injector.signer }, postTransaction(txLabel));
+            const sending = transferCall.signAndSend(sender, { signer: injector.signer }, postTransaction(txLabel, callHash));
+            loggedData[callHash] = {
+                recipient,
+                amount: amount.toLocaleString(),
+                sender,
+                relayBlockUnlock: actualBlock,
+                callHash,
+                callData,
+                status: "Sending",
+                finalizedBlock: "unknown",
+            };
             addLog([
                 `Sending time release`,
                 `<b>Recipient</b>: <code>${recipient}</code>`,
@@ -280,24 +304,39 @@ async function createTransfer(event) {
 
     } catch (e) {
         addLog(e.toString(), `${txLabel} ERROR`);
-        spinner.style.display = "none";
+        inProgress(false);
     }
 }
 
 // Function for after the transaction has been submitted
-const postTransaction = (prefix) => (status) => {
-    const spinner = document.getElementById("txProcessing");
+const postTransaction = (prefix, callHash) => (status) => {
+    const txHash = status.txHash.toHex();
+    // Move it over to the txHash
+    if (loggedData[callHash]) {
+        loggedData[txHash] = loggedData[callHash];
+        delete loggedData[callHash];
+    }
     // Log the transaction status
     if (status.isInBlock) {
-        addLog(`Transaction <code>${status.txHash.toHex()}</code> included at block hash <code>${status.status.asInBlock.toHuman()}</code>`, prefix);
+        addLog(`Transaction <code>${txHash}</code> included at block hash <code>${status.status.asInBlock.toHuman()}</code>`, prefix);
+        loggedData[txHash]["status"] = "In Block";
     } else if (status.isFinalized) {
-        addLog(`Transaction <code>${status.txHash.toHex()}</code> finalized at block hash<code>${status.status.asFinalized.toHuman()}</code>`, prefix);
-        spinner.style.display = "none";
+        const finalizedBlock = status.status.asFinalized.toHuman();
+        addLog(`Transaction <code>${txHash}</code> <b>finalized</b> at block hash<code>${finalizedBlock}</code>`, prefix);
+        loggedData[txHash]["status"] = "Finalized";
+        loggedData[txHash]["finalizedBlock"] = finalizedBlock;
+        inProgress(false);
     } else if (status.isError) {
         addLog(`Transaction error: ${status.status.toHuman()}`, prefix);
-        spinner.style.display = "none";
+        loggedData[txHash]["status"] = `Error: ${status.status.toHuman()}`;
+        inProgress(false);
+    } else if (status.status.isReady) {
+        loggedData[txHash]["status"] = "Sent";
+    } else if (status.status.isBroadcast) {
+        loggedData[txHash]["status"] = "Broadcast";
     } else {
         const msg = typeof status.status.toHuman() === "string" ? status.status.toHuman() : JSON.stringify(status.status.toHuman());
+        loggedData[txHash]["status"] = msg;
         addLog(`Transaction status: ${msg}`, prefix);
     }
 }
@@ -327,6 +366,7 @@ async function connect(event) {
     }
 
     document.getElementById("transferForm").style.display = "block";
+    document.getElementById("copyToSpreadsheet").style.display = "block";
 }
 
 // Simple display of a new log
@@ -351,6 +391,36 @@ function addLog(msg, prefix) {
     li.append(ul);
 
     document.getElementById("log").prepend(li);
+}
+
+// Simple function to allow getting data out into a spreadsheet paste-able form
+function copyToSpreadsheet() {
+    let first = true;
+    const list = Object.values(loggedData).flatMap((v) => {
+        const row = Object.values(v);
+        if (first) {
+            first = false;
+            const header = Object.keys(v);
+            return [header, row]
+        }
+        return [row];
+    });
+    navigator.clipboard.writeText(list.map(x => x.join("\t")).join("\n"));
+    document.getElementById("copyToSpreadsheet").innerHTML = "Copied!";
+    setTimeout(() => { document.getElementById("copyToSpreadsheet").innerHTML = "Copy to Spreadsheet"; }, 2000);
+}
+
+// Simple loading and button blocker
+function inProgress(isInProgress) {
+    const spinner = document.getElementById("txProcessing");
+    const submitButton = document.getElementById("createTransferButton");
+    if (isInProgress) {
+        submitButton.disabled = true;
+        spinner.style.display = "block";
+    } else {
+        submitButton.disabled = false;
+        spinner.style.display = "none";
+    }
 }
 
 // Update the various derived values from fields
@@ -378,7 +448,9 @@ function init() {
         updateSenderBalance();
         multisigProcess(false);
     });
-    document.getElementById("provider").addEventListener("input", () => { document.getElementById("transferForm").style.display = "none"; });
+    document.getElementById("provider").addEventListener("input", () => {
+        document.getElementById("transferForm").style.display = "none";
+    });
     document.getElementById("txLabel").addEventListener("paste", async (e) => {
         // Get the clipboard data as plain text
         const text = (e.clipboardData || (await navigator.clipboard.readText())).getData('text/plain');
@@ -392,6 +464,11 @@ function init() {
     });
     document.getElementById("multisigSignatories").addEventListener("input", () => multisigProcess(false));
     document.getElementById("multisigThreshold").addEventListener("input", () => multisigProcess(false));
+    document.getElementById("copyToSpreadsheet").addEventListener("click", copyToSpreadsheet);
+    document.getElementById("clearLog").addEventListener("click", () => {
+        document.getElementById("log").innerHTML = "";
+        loggedAccountData = {};
+    });
     triggerUpdates();
 }
 
