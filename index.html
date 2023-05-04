@@ -40,9 +40,11 @@
     <hr />
     <form id="transferForm" style="float:left; display: none; margin-right: 10px;">
         <label for="txLabel">Transaction Label</label>
+        <a href="#" style="font-size: small;" id="copyTemplate">Copy Template</a>
         <input type="text" id="txLabel" name="txLabel"
-            placeholder="Paste spreadsheet here [label,recipient,amount,date]"><br>
-        <label for="sender">Sender Address:</label>
+            placeholder="Paste spreadsheet here [label, recipient, amount, date, multisig1, multisig2,...]">
+            <br>
+        <label for="sender">Signing Wallet Address:</label>
         <select style="width: 100%" id="sender" name="sender" required></select>
         <p>Account Balance: <span id="balance"></span> <span class="unit">UNIT</span></p>
         <label style="display: inline;" for="multisigCheckbox">Multisig?</label>

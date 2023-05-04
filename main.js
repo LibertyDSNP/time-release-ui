@@ -153,7 +153,7 @@ function updateUnitValues() {
 // Pasting into the Transaction label will get us a
 function populateFromPaste(data) {
     // [label,recipient,amount,date]
-    const [label, recipient, amount, date] = data.map(x => x.trim());
+    const [label, recipient, amount, date, ...multisigs] = data.map(x => x.trim());
 
     // Populate the form fields
     const txLabel = document.getElementById('txLabel');
@@ -167,6 +167,11 @@ function populateFromPaste(data) {
 
     const unlockDate = document.getElementById('unlockDate');
     unlockDate.value = date;
+
+    if (multisigs.length > 0) {
+        document.getElementById("multisigCheckbox").checked = true;
+        document.getElementById("multisigSignatories").value = multisigs.join("\n");
+    }
     triggerUpdates();
 }
 
@@ -354,6 +359,13 @@ function init() {
     document.getElementById("amount").addEventListener("input", updateUnitValues);
     document.getElementById("transferForm").addEventListener("submit", createTransfer);
     document.getElementById("connectButton").addEventListener("click", connect);
+    document.getElementById("copyTemplate").addEventListener("click", (e) => {
+        e.preventDefault();
+        const template = ["Label", "Recipient", "Amount", "Date", "Multisig Participant 1", "Multisig Participant 2", "Multisig Participant 3"];
+        navigator.clipboard.writeText(template.join("\t"));
+        document.getElementById("copyTemplate").innerHTML = "Copied!";
+        setTimeout(() => { document.getElementById("copyTemplate").innerHTML = "Copy Template"; }, 2000);
+    })
     document.getElementById("unlockDate").addEventListener("input", updateBlockNumber);
     document.getElementById("sender").addEventListener("change", () => {
         updateSenderBalance();
