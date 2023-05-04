@@ -10,12 +10,16 @@ let singletonProvider;
 
 const RELAY_CHAIN_TIME = {
     "90": { // Polkadot
-        block: 14885653,
-        date: new Date("2023-03-31 13:12:30Z"),
+        seconds: 6,
+        block: 15374323,
+        date: new Date("2023-05-04T12:21:30.000Z"),
+        url: "https://polkadot.subscan.io/block/",
     },
     "42": { // Rococo and local
-        block: 4752207,
-        date: new Date("2023-03-31 13:13:12Z"),
+        seconds: 6,
+        block: 5241260,
+        date: new Date("2023-05-04T12:19:00.000Z"),
+        url: "https://rococo.subscan.io/block/",
     }
 }
 
@@ -96,6 +100,8 @@ async function updateMultisigBalance() {
 function updateBlockNumber(date) {
     const estimateDisplay = document.getElementById("actualBlock");
     estimateDisplay.value = null;
+    const link = document.getElementById("subscanLink");
+    link.style.display = "none";
 
     if (!(date instanceof Date)) {
         date = new Date(Date.parse(document.getElementById("unlockDate").value));
@@ -116,11 +122,14 @@ function updateBlockNumber(date) {
     const currentBlockDate = network.date;
 
     // Get the timestamp for noon UTC on the given date
-    const noonUTC = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12));
+    const noonUTC = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate() + 1, 12));
 
     // Calculate the estimated block number for noon UTC on the given date (6s block time)
-    const actualBlockNumber = currentBlockNumber + Math.round((+noonUTC - +currentBlockDate) / 1000 / 6);
+    const actualBlockNumber = currentBlockNumber + Math.round((+noonUTC - +currentBlockDate) / 1000 / network.seconds);
     estimateDisplay.value = actualBlockNumber;
+
+    link.href = `${network.url}${actualBlockNumber}`;
+    link.style.display = "block";
 
     return actualBlockNumber;
 }

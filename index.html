@@ -67,8 +67,10 @@
         <p>milli<span class="unit">UNIT</span>: <span id="milliunit"></span></p>
         <label for="unlockDate">Generate Block from Date:</label>
         <input type="date" id="unlockDate" name="unlockDate" required>
-        <label for="actualBlock">Actual Block:</label>
+        <label for="actualBlock">Actual Relay Chain Block:</label>
+        <a target="_blank" style="font-size: small; display: none;" href="https://polkadot.subscan.io/block/" id="subscanLink">View Estimated Block on Subscan</a>
         <input type="number" id="actualBlock" name="actualBlock">
+        <br>
         <br>
         <button type="submit">Create Transfer</button>
     </form>
