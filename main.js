@@ -1,5 +1,5 @@
 import { WsProvider, ApiPromise } from 'https://cdn.jsdelivr.net/npm/@polkadot/api@10.2.2/+esm';
-import { checkAddress, createKeyMulti, encodeAddress, blake2AsHex } from 'https://cdn.jsdelivr.net/npm/@polkadot/util-crypto@10.2.2/+esm';
+import { checkAddress, createKeyMulti, encodeAddress, blake2AsHex, decodeAddress } from 'https://cdn.jsdelivr.net/npm/@polkadot/util-crypto@10.2.2/+esm';
 import { web3Accounts, web3Enable, web3FromAddress } from 'https://cdn.jsdelivr.net/npm/@polkadot/extension-dapp@0.45.5/+esm';
 
 let PREFIX = 42;
@@ -24,6 +24,17 @@ const RELAY_CHAIN_TIME = {
         date: new Date("2023-05-04T12:19:00.000Z"),
         url: "https://rococo.subscan.io/block/",
     }
+}
+
+// Sort addresses by hex.
+const multisigSort = (a, b) => {
+    const decodedA = decodeAddress(a);
+    const decodedB = decodeAddress(b);
+    for (let i = 0; i < decodedA.length; i++) {
+        if (decodedA[i] < decodedB[i]) return -1;
+        if (decodedA[i] > decodedB[i]) return 1;
+    }
+    return 0;
 }
 
 // Load up the api for the given provider uri
@@ -260,7 +271,10 @@ async function createTransfer(event) {
 
             const [multisigAddress, multisigThreshold, multisigSignatories] = multisigProcess(true);
 
-            const tx = api.tx.multisig.asMulti(multisigThreshold, multisigSignatories.filter(x => x != sender), null, transferCall, maxWeight);
+            // We need to remove the sender and sort correctly before asMulti can be used.
+            const sortedOthers = multisigSignatories.filter(x => x != sender).sort(multisigSort);
+
+            const tx = api.tx.multisig.asMulti(multisigThreshold, sortedOthers, null, transferCall, maxWeight);
             const sending = tx.signAndSend(sender, { signer: injector.signer }, postTransaction(txLabel, callHash));
             loggedData[callHash] = {
                 recipient,
