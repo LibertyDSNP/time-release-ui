@@ -213,7 +213,7 @@ function multisigProcess(doAlert = false) {
 // Do the actual transfer
 async function createTransfer(event) {
     event.preventDefault();
-    const sender = document.getElementById("sender").value;
+    let sender = document.getElementById("sender").value;
     const txLabel = document.getElementById("txLabel").value;
     let recipient = document.getElementById("recipient").value;
     const amount = parseInt(document.getElementById("amount").value);
@@ -229,6 +229,7 @@ async function createTransfer(event) {
     const isMultisig = document.getElementById("multisigCheckbox").checked;
 
     recipient = encodeAddress(recipient, PREFIX);
+    sender = encodeAddress(sender, PREFIX);
 
     const api = await loadApi();
 
@@ -360,8 +361,9 @@ async function connect(event) {
     // Add options for each account
     for (const account of accounts) {
         const option = document.createElement("option");
-        option.value = account.address;
-        option.text = `${account.meta.name} (${account.address})` || account.address;
+        const address = encodeAddress(account.address, PREFIX);
+        option.value = address;
+        option.text = `${account.meta.name} (${address})` || address;
         senderSelect.add(option);
     }
 
