@@ -116,6 +116,7 @@ function updateBlockNumber(date) {
     estimateDisplay.value = null;
     const link = document.getElementById("subscanLink");
     link.style.display = "none";
+    inProgress(true);
 
     if (!(date instanceof Date)) {
         date = new Date(Date.parse(document.getElementById("unlockDate").value));
@@ -144,6 +145,7 @@ function updateBlockNumber(date) {
 
     link.href = `${network.url}${actualBlockNumber}`;
     link.style.display = "block";
+    inProgress(false);
 
     return actualBlockNumber;
 }
