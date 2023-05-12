@@ -10,6 +10,8 @@ let singletonProvider;
 
 // Simple place to dump log data that is then able to be sent to a clipboard
 let loggedData = {};
+// Key of what was most recently logged
+let lastKeyInLoggedData = null;
 
 const RELAY_CHAIN_TIME = {
     "90": { // Polkadot
@@ -288,6 +290,7 @@ async function createTransfer(event) {
                 status: "Sending",
                 finalizedBlock: "unknown",
             };
+            lastKeyInLoggedData = callHash;
             addLog([
                 `Sending time release`,
                 `<b>Recipient</b>: <code>${recipient}</code>`,
@@ -309,6 +312,7 @@ async function createTransfer(event) {
                 status: "Sending",
                 finalizedBlock: "unknown",
             };
+            lastKeyInLoggedData = callHash;
             addLog([
                 `Sending time release`,
                 `<b>Recipient</b>: <code>${recipient}</code>`,
@@ -332,6 +336,7 @@ const postTransaction = (prefix, callHash) => (status) => {
     if (loggedData[callHash]) {
         loggedData[txHash] = loggedData[callHash];
         delete loggedData[callHash];
+        lastKeyInLoggedData = txHash;
     }
     // Log the transaction status
     if (status.isInBlock) {
@@ -385,6 +390,7 @@ async function connect(event) {
 
     document.getElementById("transferForm").style.display = "block";
     document.getElementById("copyToSpreadsheet").style.display = "block";
+    document.getElementById("copyToSpreadsheetLast").style.display = "block";
 }
 
 // Simple display of a new log
@@ -412,9 +418,18 @@ function addLog(msg, prefix) {
 }
 
 // Simple function to allow getting data out into a spreadsheet paste-able form
-function copyToSpreadsheet() {
+const copyToSpreadsheet = (type = "all") => () => {
     let first = true;
-    const list = Object.values(loggedData).flatMap((v) => {
+    let logData = [];
+    let elId = "copyToSpreadsheet";
+    if (type === "last") {
+        first = false;
+        logData = (lastKeyInLoggedData && loggedData[lastKeyInLoggedData]) ? [loggedData[lastKeyInLoggedData]] : [];
+        elId = "copyToSpreadsheetLast";
+    } else {
+        logData = Object.values(loggedData);
+    }
+    const list = logData.flatMap((v) => {
         const row = Object.values(v);
         if (first) {
             first = false;
@@ -424,8 +439,9 @@ function copyToSpreadsheet() {
         return [row];
     });
     navigator.clipboard.writeText(list.map(x => x.join("\t")).join("\n"));
-    document.getElementById("copyToSpreadsheet").innerHTML = "Copied!";
-    setTimeout(() => { document.getElementById("copyToSpreadsheet").innerHTML = "Copy to Spreadsheet"; }, 2000);
+    const label = document.getElementById(elId).innerHTML;
+    document.getElementById(elId).innerHTML = "Copied!";
+    setTimeout(() => { document.getElementById(elId).innerHTML = label; }, 2000);
 }
 
 // Simple loading and button blocker
@@ -482,10 +498,12 @@ function init() {
     });
     document.getElementById("multisigSignatories").addEventListener("input", () => multisigProcess(false));
     document.getElementById("multisigThreshold").addEventListener("input", () => multisigProcess(false));
-    document.getElementById("copyToSpreadsheet").addEventListener("click", copyToSpreadsheet);
+    document.getElementById("copyToSpreadsheet").addEventListener("click", copyToSpreadsheet("all"));
+    document.getElementById("copyToSpreadsheetLast").addEventListener("click", copyToSpreadsheet("last"));
     document.getElementById("clearLog").addEventListener("click", () => {
         document.getElementById("log").innerHTML = "";
-        loggedAccountData = {};
+        loggedData = {};
+        lastKeyInLoggedData = null;
     });
     triggerUpdates();
 }
