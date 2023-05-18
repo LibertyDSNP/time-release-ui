@@ -45,7 +45,6 @@
                 box-shadow: 32px 0 var(--color-accent), -32px 0 var(--color-link);
             }
         }
-
     </style>
 </head>
 
@@ -54,20 +53,28 @@
     <p>
         Does a single period Time Release transfer.
     </p>
-    <form id="setupForm">
-        <label for="provider">Websocket Connection</label>
-        <input type="text" id="provider" name="provider" list="provider-list" value="wss://1.rpc.frequency.xyz"><br>
+    <div class="hideConnected">
+        <form id="setupForm">
+            <label for="provider">Choose a Network</label>
+            <select id="provider" required>
+                <option value="wss://1.rpc.frequency.xyz" name="frequency">Frequency Mainnet</option>
+                <option value="wss://rpc.rococo.frequency.xyz" name="rococo">Frequency Testnet/Rococo</option>
+                <option value="ws://localhost:9944" name="localhost">Localhost</option>
+                <option value="custom" name="Custom">Custom</option>
+            </select>
+            <div id="providerCustomContainer" style="display: none;">
+                <label for="providerCustom">Custom Network Connection</label>
+                <input type="text" id="providerCustom" name="providerCustom" placeholder="Custom wss://..." />
+            </div>
 
-        <datalist id="provider-list">
-            <option value="wss://rpc.rococo.frequency.xyz">
-            <option value="wss://1.rpc.frequency.xyz">
-            <option value="ws://localhost:9944">
-        </datalist>
-
-        <button type="button" id="connectButton">Connect to Wallet</button>
-    </form>
-    <hr />
-    <form id="transferForm" style="float:left; display: none; margin-right: 10px;">
+            <button type="button" id="connectButton">Connect to Node & Wallet</button>
+        </form>
+    </div>
+    <section class="showConnected" style="display: none;">
+        <button type="button" id="disconnectButton">Disconnect from <span id="currentProvider">...</span></button>
+    </section>
+    <br>
+    <form id="transferForm" class="showConnected" style="float:left; display: none; margin-right: 10px;">
         <label for="txLabel">Transaction Label</label>
         <a href="#" style="font-size: small;" id="copyTemplate">Copy Template</a>
         <input type="text" id="txLabel" name="txLabel"
@@ -95,7 +102,6 @@
         <label for="amount">Amount: (in Planck <span class="unit">UNIT</span>s)</label>
         <input type="number" id="amount" name="amount" required min="1" step="1">
         <p><span class="unit">UNIT</span>: <span id="unit"></span></p>
-        <p>milli<span class="unit">UNIT</span>: <span id="milliunit"></span></p>
         <label for="unlockDate">Generate Block from Date:</label>
         <input type="date" id="unlockDate" name="unlockDate" required>
         <label for="actualBlock">Actual Relay Chain Block:</label>
@@ -107,9 +113,10 @@
         <br>
         <button type="submit" id="createTransferButton">Create Transfer</button>
     </form>
-    <div style="float:left; width: 50%;">
-        <button type="button" id="copyToSpreadsheet" style="display:none; float: right; margin: 6px;">All To Clipboard</button>
-        <button type="button" id="copyToSpreadsheetLast" style="display:none; float: right; margin: 6px;">Last Tx To Clipboard</button>
+    <div class="showConnected" style="display:none; float:left; width: 50%;">
+        <button type="button" id="copyToSpreadsheet" style="float: right; margin: 6px;">All To Clipboard</button>
+        <button type="button" id="copyToSpreadsheetLast" style="float: right; margin: 6px;">Last Tx To
+            Clipboard</button>
         <h2>Transaction Log</h2>
         <ul id="log"></ul>
         <button type="button" id="clearLog">Clear</button>
