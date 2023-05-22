@@ -7,11 +7,13 @@ let PREFIX = 42;
 let UNIT = "UNIT";
 let DECIMALS = 8;
 let isConnected = false;
+let providerUrl = "";
 
 export function getDecimals() { return DECIMALS; }
 export function getUnit() { return UNIT; }
 export function getPrefix() { return PREFIX; }
 export function getIsConnected() { return isConnected; }
+export function getProviderUrl() { return providerUrl; }
 
 // Load up the api for the given provider uri
 export async function loadApi(providerUri) {
@@ -32,36 +34,52 @@ export async function loadApi(providerUri) {
 
     // Singleton Provider because it starts trying to connect here.
     singletonProvider = new WsProvider(providerUri);
-    singletonApi = await ApiPromise.create({ provider: singletonProvider });
-
-    await singletonApi.isReady;
+    singletonApi = await ApiPromise.create({ provider: singletonProvider, throwOnConnect: true });
     const chain = await singletonApi.rpc.system.properties();
     PREFIX = Number(chain.ss58Format.toString());
     UNIT = chain.tokenSymbol.toHuman();
     DECIMALS = chain.tokenDecimals.toJSON()[0];
+    providerUrl = providerUri;
     document.querySelectorAll(".unit").forEach(e => e.innerHTML = UNIT);
     return singletonApi;
 }
 
-// Connect to the node
+// Connect to the wallet and blockchain
 const connect = (postConnect) => async (event) => {
     event.preventDefault();
+    const connectError = document.getElementById("connectError");
+    const connectButton = document.getElementById("connectButton");
+    connectError.innerHTML = "";
+    connectError.style.display = "none";
+
+    connectButton.innerHTML = "Connecting...";
+    connectButton.disabled = true;
+
     let provider = document.getElementById("provider").value;
     if (provider === "custom") {
         provider = document.getElementById("providerCustom").value;
     }
-    const api = await loadApi(provider);
-    isConnected = true;
-    if (postConnect) await postConnect(api);
+    try {
+        await loadApi(provider);
+        isConnected = true;
+        connectError.innerHTML = "";
+        connectError.style.display = "none";
+        await postConnect();
 
-    toggleConnectedVisibility(true, provider);
+        toggleConnectedVisibility(true, provider);
+    } catch (_e) {
+        connectError.style.display = "block";
+        connectError.innerHTML = "Failed to connect. Check the connection URL: " + provider;
+    }
+    connectButton.innerHTML = "Connect to Node";
+    connectButton.disabled = false;
 }
 
 // Reset
 async function disconnect(event) {
     event.preventDefault();
-    isConnected = false;
     const api = await loadApi();
+    isConnected = false;
     await api.disconnect();
     toggleConnectedVisibility(false);
 }
