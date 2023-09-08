@@ -1,6 +1,6 @@
-import { checkAddress, createKeyMulti, encodeAddress, blake2AsHex, decodeAddress } from 'https://cdn.jsdelivr.net/npm/@polkadot/util-crypto@10.2.2/+esm';
-import { web3Accounts, web3Enable, web3FromAddress } from 'https://cdn.jsdelivr.net/npm/@polkadot/extension-dapp@0.45.5/+esm';
-import { loadApi, initConnection, toDecimalUnit, getPrefix, getUnit, getIsConnected, getCurrentRelayChainBlockNumber } from './api.js';
+import { checkAddress, createKeyMulti, encodeAddress, blake2AsHex, decodeAddress } from 'https://cdn.jsdelivr.net/npm/@polkadot/util-crypto@12.3.1/+esm';
+import { web3Accounts, web3Enable, web3FromAddress } from 'https://cdn.jsdelivr.net/npm/@polkadot/extension-dapp@0.46.5/+esm';
+import { loadApi, initConnection, toDecimalUnit, getPrefix, getUnit, getIsConnected, getCurrentRelayChainBlockNumber, getProviderUrl } from './api.js';
 
 // Simple place to dump log data that is then able to be sent to a clipboard
 let loggedData = {};
