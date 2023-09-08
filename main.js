@@ -202,9 +202,7 @@ async function createTransfer(event) {
         ];
 
         if (isMultisig) {
-            const maxWeight = {
-                weight: 1_000_000_000,
-            }
+            const maxWeight = { refTime: 1_000_000_000, proofSize: 50_000 };
 
             const [multisigAddress, multisigThreshold, multisigSignatories] = multisigProcess(true);
 
