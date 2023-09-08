@@ -261,6 +261,39 @@ async function createTransfer(event) {
     }
 }
 
+const hasSuccess = (status) => {
+    const events = status.events.map(x => x.toHuman());
+    const success = events.find(x => x.event.method === "ExtrinsicSuccess");
+    return !!success;
+}
+
+function printEventData(data) {
+    let ret = "";
+    for (const key in data) {
+        const d = data[key];
+        if (typeof d !== 'object') {
+            ret += "<li>" + key + " : " + d + "</li>";
+        } else {
+            ret += "<li>" + key + " : " + printEventData(d) + "</li>";
+        }
+    }
+    return "<ul>" + ret + "</ul>";
+}
+
+function printEvents(status) {
+    const events = status.events.map(x => x.toHuman().event);
+    let ret = "";
+    for (const key in events) {
+        const event = events[key];
+        if (typeof event === 'object' && event.method && event.data) {
+            ret += "<li>" + event.method + " : " + printEventData(event.data) + "</li>";
+        } else {
+            ret += "<li>" + key + " : " + event + "</li>";
+        }
+    }
+    return "<ul>" + ret + "</ul>";
+}
+
 // Function for after the transaction has been submitted
 const postTransaction = (prefix, callHash) => (status) => {
     const txHash = status.txHash.toHex();
@@ -276,9 +309,15 @@ const postTransaction = (prefix, callHash) => (status) => {
         loggedData[txHash]["status"] = "In Block";
     } else if (status.isFinalized) {
         const finalizedBlock = status.status.asFinalized.toHuman();
-        addLog(`Transaction <code>${txHash}</code> <b>finalized</b> at block hash<code>${finalizedBlock}</code>`, prefix);
         loggedData[txHash]["status"] = "Finalized";
         loggedData[txHash]["finalizedBlock"] = finalizedBlock;
+        const finalizedBlockMsg = `<a target="_blank" title="Block Details" href="https://polkadot.js.org/apps/?rpc=${getProviderUrl()}#/explorer/query/${finalizedBlock}"><code>${finalizedBlock}</code></a>`;
+        if (hasSuccess(status)) {
+            addLog(`Transaction <code>${txHash}</code> <b>finalized</b> at block hash ${finalizedBlockMsg}`, prefix);
+        } else {
+            const eventPrint = printEvents(status);
+            addLog(`<span style="color: red; font-weight: bold;">POSSIBLE ERROR!!</span> Transaction <code>${txHash}</code> <b>finalized</b> at block hash ${finalizedBlockMsg}${eventPrint}`, prefix);
+        }
         inProgress(false);
     } else if (status.isError) {
         addLog(`Transaction error: ${status.status.toHuman()}`, prefix);
