@@ -131,7 +131,8 @@ function multisigProcess(doAlert = false) {
     document.getElementById("multisigBalance").innerHTML = "...";
     const isMultisig = document.getElementById("multisigCheckbox").checked;
     const multisigThreshold = parseInt(document.getElementById("multisigThreshold").value);
-    const multisigSignatories = document.getElementById("multisigSignatories").value.split("\n").map(x => x.trim()).filter(x => !!x);
+    const senderAddress = document.getElementById("sender").value;
+    const multisigSignatories = document.getElementById("multisigSignatories").value.split("\n").map(x => x.trim()).filter(x => !!x).filter(x => x !== senderAddress);
     multisigSignatories.push(document.getElementById("sender").value);
 
     if (isMultisig) {
