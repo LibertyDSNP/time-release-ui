@@ -1,6 +1,6 @@
 import { checkAddress, createKeyMulti, encodeAddress, blake2AsHex, decodeAddress } from 'https://cdn.jsdelivr.net/npm/@polkadot/util-crypto@12.3.1/+esm';
 import { web3Accounts, web3Enable, web3FromAddress } from 'https://cdn.jsdelivr.net/npm/@polkadot/extension-dapp@0.46.5/+esm';
-import { loadApi, initConnection, toDecimalUnit, getPrefix, getUnit, getIsConnected, getCurrentRelayChainBlockNumber, getProviderUrl } from './api.js';
+import { loadApi, initConnection, toDecimalUnit, getPrefix, getUnit, getIsConnected, getCurrentRelayChainBlockNumber, getProviderUrl, getPendingMultisigs } from './api.js';
 
 // Simple place to dump log data that is then able to be sent to a clipboard
 let loggedData = {};
@@ -46,6 +46,77 @@ async function updateMultisigBalance() {
     const balance = resp.data.free.toString();
 
     balanceDisplay.innerHTML = toDecimalUnit(balance);
+}
+
+
+function displaySchedule(schedule, destination, relayBlockNumber) {
+    if (schedule.periodCount > 1) {
+        const unsupported = document.createElement("span");
+        unsupported.innerHTML = "Unsupported per period value";
+        return unsupported;
+    }
+    const template = document.querySelector('#schedule-template');
+    const scheduleEl = template.content.cloneNode(true);
+    scheduleEl.querySelector(".balanceResultTokens").innerHTML = toDecimalUnit(schedule.perPeriod.toString()) + " " + getUnit();
+    const unlockRelayBlock = (schedule.start + schedule.period);
+    scheduleEl.querySelector(".unlockRelayBlock").innerHTML = unlockRelayBlock.toLocaleString();
+
+    const untilUnlock = (unlockRelayBlock - relayBlockNumber) * 6 * 1000;
+    const unlockEstimate = new Date(Date.now() + untilUnlock);
+    scheduleEl.querySelector(".estimatedUnlock").innerHTML = unlockEstimate.toLocaleString();
+
+    scheduleEl.querySelector(".destination").innerHTML = destination;
+
+    return scheduleEl;
+}
+
+async function pendingTransactionUpdate(tx, el) {
+    const isApproved = tx.approvals.length >= Number(document.getElementById("multisigThreshold").value);
+
+    const approvedAddresses = tx.approvals.map(a => encodeAddress(a, getPrefix()));
+    el.querySelector(".approvals").innerHTML = (isApproved ? "<b>Threshold Reached:</b> " : "") + approvedAddresses.join(", ");
+
+    if (tx.hash) {
+        el.querySelector(".callHash").innerHTML = tx.hash;
+    }
+
+    el.querySelector(".callData").value = tx.callData;
+
+    const timeReleaseEl = el.querySelector(".multisig-time-release");
+    timeReleaseEl.innerHTML = "";
+    timeReleaseEl.append(displaySchedule(tx.schedule, encodeAddress(tx.dest.id, getPrefix()), await getCurrentRelayChainBlockNumber()))
+}
+
+
+async function displayPendingMultisigTransaction(tx) {
+    const template = document.querySelector('#multisig-template');
+    const el = template.content.cloneNode(true);
+    await pendingTransactionUpdate(tx, el);
+    return el;
+}
+
+// Update the multisig pending tx display
+async function updateMultisigPending() {
+    const isMultisig = document.getElementById("multisigCheckbox").checked;
+    if (isMultisig) {
+        const pendingTransactions = document.getElementById("multisigPending");
+        pendingTransactions.innerHTML = "...";
+        const sender = document.getElementById("multisigAddress").value;
+        const api = await loadApi();
+        if (!api || !sender) {
+            return;
+        }
+        const transactions = await getPendingMultisigs(sender);
+
+        if (transactions.length > 0) {
+            pendingTransactions.innerHTML = "";
+            for (const tx of transactions) {
+                pendingTransactions.append(await displayPendingMultisigTransaction(tx));
+            }
+        } else {
+            pendingTransactions.innerHTML = "None Found";
+        }
+    }
 }
 
 // Estimate the block number by date
@@ -133,7 +204,7 @@ function multisigProcess(doAlert = false) {
     const multisigThreshold = parseInt(document.getElementById("multisigThreshold").value);
     const senderAddress = document.getElementById("sender").value;
     const multisigSignatories = document.getElementById("multisigSignatories").value.split("\n").map(x => x.trim()).filter(x => !!x).filter(x => x !== senderAddress);
-    multisigSignatories.push(document.getElementById("sender").value);
+    if (senderAddress) multisigSignatories.push(senderAddress);
 
     if (isMultisig) {
         if (multisigThreshold > multisigSignatories.length) {
@@ -151,6 +222,7 @@ function multisigProcess(doAlert = false) {
             const multisigAddress = encodeAddress(createKeyMulti(multisigSignatories, multisigThreshold), getPrefix());
             document.getElementById("multisigAddress").value = multisigAddress;
             updateMultisigBalance();
+            updateMultisigPending();
             return [multisigAddress, multisigThreshold, multisigSignatories];
         } catch (e) {
             if (doAlert) alert(`Multisig setup is invalid. Wrong threshold or bad signatories: ${e.toString()}`);
@@ -356,7 +428,7 @@ async function postConnect() {
         option.text = `${account.meta.name} (${address})` || address;
         senderSelect.add(option);
     }
-    await updateBlockNumber();
+    triggerUpdates();
 }
 
 // Simple display of a new log
@@ -428,6 +500,7 @@ function triggerUpdates() {
     updateBlockNumber();
     updateUnitValues();
     updateSenderBalance();
+    updateMultisigPending();
     multisigProcess(false);
 }
 
@@ -467,7 +540,6 @@ function init() {
         loggedData = {};
         lastKeyInLoggedData = null;
     });
-    triggerUpdates();
     initConnection(postConnect);
 }
 

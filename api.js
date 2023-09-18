@@ -136,3 +136,38 @@ export function toDecimalUnit(balance) {
 
     return balance > 0 ? (Number(balance) / (10 ** DECIMALS)).toLocaleString(undefined, { minimumFractionDigits: DECIMALS }) : "0";
 }
+
+// This will only get Time Release Transfers
+export async function getPendingMultisigs(address) {
+    const api = await loadApi();
+    const multisigEntries = await Promise.all((await api.query.multisig.multisigs.entries(address)).map(async (entry) => {
+        const [_multisig, hash] = entry[0].toHuman();
+        const entryData = (entry[1]).toJSON();
+
+        const blockHash = await api.rpc.chain.getBlockHash(entryData.when.height);
+        const signedBlock = await api.rpc.chain.getBlock(blockHash);
+        const tx = signedBlock.block.extrinsics[entryData.when.index] ? signedBlock.block.extrinsics[entryData.when.index].toHuman() : null;
+
+        if (!tx || !tx.method || !tx.method.args || !tx.method.args.call || tx.method.args.call.method !== 'transfer' || tx.method.args.call.section !== 'timeRelease') {
+            throw new Error("Unable to process original data");
+        }
+
+        const {dest, schedule } = tx.method.args.call.args;
+
+        return {
+            hash,
+            schedule: {
+                start: Number(schedule.start.replace(/,/g, "")),
+                perPeriod: BigInt(schedule.perPeriod.replace(/,/g, "")),
+                period: Number(schedule.period.replace(/,/g, "")),
+                periodCount: Number(schedule.periodCount.replace(/,/g, "")),
+            },
+            dest: {
+                id: dest.Id
+            },
+            callData: signedBlock.block.extrinsics[entryData.when.index].method.args[3].toHex(),
+            approvals: entryData.approvals,
+        };
+    }));
+    return multisigEntries;
+}

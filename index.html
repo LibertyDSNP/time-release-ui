@@ -17,6 +17,26 @@
             display: block;
         }
 
+        dl {
+            margin-top: 0;
+        }
+
+        dt {
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        dd {
+            margin: 0;
+            padding: 0 0 0.5em 0;
+        }
+
+        .pending-multisig {
+            padding: 1rem;
+            border-bottom: 1px solid black;
+            border-top: 1px solid black;
+        }
+
         /* Spinner */
         .loader {
             width: 16px;
@@ -49,6 +69,35 @@
 </head>
 
 <body style="padding: 0 20px 10px">
+    <template id="schedule-template">
+        <dl>
+            <dt>Time Release Transfer Locked Until (estimated local time)</dt>
+            <dd class="estimatedUnlock"></dd>
+            <dt>Relay Chain Block Number</dt>
+            <dd class="unlockRelayBlock"></dd>
+            <dt>Amount</dt>
+            <dd class="balanceResultTokens"></dd>
+            <dt>Destination Address</dt>
+            <dd class="destination"></dd>
+        </dl>
+    </template>
+
+    <template id="multisig-template">
+        <div class="pending-multisig">
+            <dl>
+                <dt>Multisig Call Hash</dt>
+                <dd class="callHash">Unknown</dd>
+                <dt>Approvals</dt>
+                <dd class="approvals">Unknown</dd>
+                <label for="callData">
+                    Call Data
+                    <input readonly title="Click out to update" name="callData" class="callData" style="width: 100%" />
+                </label>
+            </dl>
+            <div class="multisig-time-release"></div>
+        </div>
+    </template>
+
     <h1>Time Release Transfer</h1>
     <p>
         Does a single period Time Release transfer.
@@ -97,6 +146,8 @@
             <label for="multisigAddress">Result Address</label>
             <input type="text" id="multisigAddress" disabled name="multisigAddress">
             <p>Account Balance: <span id="multisigBalance"></span> <span class="unit">UNIT</span></p>
+            <h3>Current Pending Multisigs</h3>
+            <div id="multisigPending">...</div>
         </fieldset>
         <label for="recipient">Recipient Address:</label>
         <input type="text" id="recipient" name="recipient" required><br>
