@@ -1,180 +1,197 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>Time Release Transfer</title>
-    <link rel="icon" type="image/x-icon" href="./favicon.ico">
-    <link rel="stylesheet" href="//unpkg.com/mvp.css@1.12/mvp.css">
+    <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+    <link rel="stylesheet" href="//unpkg.com/mvp.css@1.12/mvp.css" />
     <style>
-        /* show multisig config only if multisig */
-        #multisigConfig {
-            display: none;
-            margin-bottom: 20px;
+      /* show multisig config only if multisig */
+      #multisigConfig {
+        display: none;
+        margin-bottom: 20px;
+      }
+
+      #multisigCheckbox:checked ~ #multisigConfig {
+        display: block;
+      }
+
+      dl {
+        margin-top: 0;
+      }
+
+      dt {
+        font-weight: bold;
+        text-decoration: underline;
+      }
+
+      dd {
+        margin: 0;
+        padding: 0 0 0.5em 0;
+      }
+
+      .pending-multisig {
+        padding: 1rem;
+        border-bottom: 1px solid black;
+        border-top: 1px solid black;
+      }
+
+      /* Spinner */
+      .loader {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background-color: var(--color-accent);
+        box-shadow:
+          32px 0 var(--color-accent),
+          -32px 0 var(--color-accent);
+        position: relative;
+        animation: flash 1s ease-out infinite alternate;
+        margin-left: 90px;
+      }
+
+      @keyframes flash {
+        0% {
+          background-color: var(--color-link);
+          box-shadow:
+            32px 0 var(--color-link),
+            -32px 0 var(--color-accent);
         }
 
-        #multisigCheckbox:checked~#multisigConfig {
-            display: block;
+        50% {
+          background-color: var(--color-accent);
+          box-shadow:
+            32px 0 var(--color-link),
+            -32px 0 var(--color-link);
         }
 
-        dl {
-            margin-top: 0;
+        100% {
+          background-color: var(--color-link);
+          box-shadow:
+            32px 0 var(--color-accent),
+            -32px 0 var(--color-link);
         }
-
-        dt {
-            font-weight: bold;
-            text-decoration: underline;
-        }
-
-        dd {
-            margin: 0;
-            padding: 0 0 0.5em 0;
-        }
-
-        .pending-multisig {
-            padding: 1rem;
-            border-bottom: 1px solid black;
-            border-top: 1px solid black;
-        }
-
-        /* Spinner */
-        .loader {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background-color: var(--color-accent);
-            box-shadow: 32px 0 var(--color-accent), -32px 0 var(--color-accent);
-            position: relative;
-            animation: flash 1s ease-out infinite alternate;
-            margin-left: 90px;
-        }
-
-        @keyframes flash {
-            0% {
-                background-color: var(--color-link);
-                box-shadow: 32px 0 var(--color-link), -32px 0 var(--color-accent);
-            }
-
-            50% {
-                background-color: var(--color-accent);
-                box-shadow: 32px 0 var(--color-link), -32px 0 var(--color-link);
-            }
-
-            100% {
-                background-color: var(--color-link);
-                box-shadow: 32px 0 var(--color-accent), -32px 0 var(--color-link);
-            }
-        }
+      }
     </style>
-</head>
+  </head>
 
-<body style="padding: 0 20px 10px">
+  <body style="padding: 0 20px 10px">
     <template id="schedule-template">
-        <dl>
-            <dt>Time Release Transfer Locked Until (estimated local time)</dt>
-            <dd class="estimatedUnlock"></dd>
-            <dt>Relay Chain Block Number</dt>
-            <dd class="unlockRelayBlock"></dd>
-            <dt>Amount</dt>
-            <dd class="balanceResultTokens"></dd>
-            <dt>Destination Address</dt>
-            <dd class="destination"></dd>
-        </dl>
+      <dl>
+        <dt>Time Release Transfer Locked Until (estimated local time)</dt>
+        <dd class="estimatedUnlock"></dd>
+        <dt>Relay Chain Block Number</dt>
+        <dd class="unlockRelayBlock"></dd>
+        <dt>Amount</dt>
+        <dd class="balanceResultTokens"></dd>
+        <dt>Destination Address</dt>
+        <dd class="destination"></dd>
+      </dl>
     </template>
 
     <template id="multisig-template">
-        <div class="pending-multisig">
-            <dl>
-                <dt>Multisig Call Hash</dt>
-                <dd class="callHash">Unknown</dd>
-                <dt>Approvals</dt>
-                <dd class="approvals">Unknown</dd>
-                <label for="callData">
-                    Call Data
-                    <input readonly title="Click out to update" name="callData" class="callData" style="width: 100%" />
-                </label>
-            </dl>
-            <div class="multisig-time-release"></div>
-        </div>
+      <div class="pending-multisig">
+        <dl>
+          <dt>Multisig Call Hash</dt>
+          <dd class="callHash">Unknown</dd>
+          <dt>Approvals</dt>
+          <dd class="approvals">Unknown</dd>
+          <label for="callData">
+            Call Data
+            <input readonly title="Click out to update" name="callData" class="callData" style="width: 100%" />
+          </label>
+        </dl>
+        <div class="multisig-time-release"></div>
+      </div>
     </template>
 
     <h1>Time Release Transfer</h1>
-    <p>
-        Does a single period Time Release transfer.
-    </p>
+    <p>Does a single period Time Release transfer.</p>
     <div class="hideConnected">
-        <form id="setupForm">
-            <label for="provider">Choose a Network</label>
-            <select id="provider" required>
-                <option value="wss://1.rpc.frequency.xyz" name="frequency">Frequency Mainnet</option>
-                <option value="wss://rpc.rococo.frequency.xyz" name="rococo">Frequency Testnet/Rococo</option>
-                <option value="ws://localhost:9944" name="localhost">Localhost</option>
-                <option value="custom" name="Custom">Custom</option>
-            </select>
-            <div id="providerCustomContainer" style="display: none;">
-                <label for="providerCustom">Custom Network Connection</label>
-                <input type="text" id="providerCustom" name="providerCustom" placeholder="Custom wss://..." />
-            </div>
+      <form id="setupForm">
+        <label for="provider">Choose a Network</label>
+        <select id="provider" required>
+          <option value="wss://1.rpc.frequency.xyz" name="frequency">Frequency Mainnet</option>
+          <option value="wss://0.rpc.testnet.amplica.io" name="frequency_paseo">Frequency Testnet/Paseo</option>
+          <option value="ws://localhost:9944" name="localhost">Localhost</option>
+          <option value="custom" name="Custom">Custom</option>
+        </select>
+        <div id="providerCustomContainer" style="display: none">
+          <label for="providerCustom">Custom Network Connection</label>
+          <input type="text" id="providerCustom" name="providerCustom" placeholder="Custom wss://..." />
+        </div>
 
-            <button type="button" id="connectButton">Connect to Node</button>
-            <span id="connectError" style="display: none; color: red;"></span>
-        </form>
+        <button type="button" id="connectButton">Connect to Node</button>
+        <span id="connectError" style="display: none; color: red"></span>
+      </form>
     </div>
-    <section class="showConnected" style="display: none;">
-        <button type="button" id="disconnectButton">Disconnect from <span id="currentProvider">...</span></button>
+    <section class="showConnected" style="display: none">
+      <button type="button" id="disconnectButton">Disconnect from <span id="currentProvider">...</span></button>
     </section>
-    <br>
-    <form id="transferForm" class="showConnected" style="float:left; display: none; margin-right: 10px;">
-        <label for="txLabel">Transaction Label</label>
-        <a href="#" style="font-size: small;" id="copyTemplate">Copy Template</a>
-        <input type="text" id="txLabel" name="txLabel"
-            placeholder="Paste spreadsheet here [label, recipient, amount, date, multisig1, multisig2,...]">
-        <br>
-        <label for="sender">Signing Wallet Address:</label>
-        <select style="width: 100%" id="sender" name="sender" required></select>
-        <p>Account Balance: <span id="balance"></span> <span class="unit">UNIT</span></p>
-        <label style="display: inline;" for="multisigCheckbox">Multisig?</label>
-        <input style="display: inline;" type="checkbox" id="multisigCheckbox" name="multisigCheckbox" />
-        <fieldset id="multisigConfig">
-            <legend>Configuration</legend>
-            <label for="multisigThreshold">Threshold</label>
-            <input type="number" id="multisigThreshold" name="multisigThreshold" required min="2" step="1"
-                value="2"><br />
-            <label for="multisigSignatories">Signatories (Excluding sender)</label>
-            <textarea name="multisigSignatories" id="multisigSignatories" rows="5"
-                placeholder="One per line"></textarea>
-            <label for="multisigAddress">Result Address</label>
-            <input type="text" id="multisigAddress" disabled name="multisigAddress">
-            <p>Account Balance: <span id="multisigBalance"></span> <span class="unit">UNIT</span></p>
-            <h3>Current Pending Multisigs</h3>
-            <div id="multisigPending">...</div>
-        </fieldset>
-        <label for="recipient">Recipient Address:</label>
-        <input type="text" id="recipient" name="recipient" required><br>
-        <label for="amount">Amount: (in Planck <span class="unit">UNIT</span>s)</label>
-        <input type="number" id="amount" name="amount" required min="10000000" step="1">
-        <p><span class="unit">UNIT</span>: <span id="unit"></span></p>
-        <label for="unlockDate">Generate Block from Date:</label>
-        <input type="date" id="unlockDate" name="unlockDate" required>
-        <label for="actualBlock">Actual Relay Chain Block:</label>
-        <a target="_blank" style="font-size: small; display: none;" href="https://polkadot.subscan.io/block/"
-            id="subscanLink">View Estimated Block on Subscan</a>
-        <input type="number" id="actualBlock" name="actualBlock" min="1" step="1" required>
-        <br>
-        <span id="txProcessing" class="loader"></span>
-        <br>
-        <button type="submit" id="createTransferButton">Create Transfer</button>
+    <br />
+    <form id="transferForm" class="showConnected" style="float: left; display: none; margin-right: 10px">
+      <label for="txLabel">Transaction Label</label>
+      <a href="#" style="font-size: small" id="copyTemplate">Copy Template</a>
+      <input
+        type="text"
+        id="txLabel"
+        name="txLabel"
+        placeholder="Paste spreadsheet here [label, recipient, amount, date, multisig1, multisig2,...]"
+      />
+      <br />
+      <label for="sender">Signing Wallet Address:</label>
+      <select style="width: 100%" id="sender" name="sender" required></select>
+      <p>Account Balance: <span id="balance"></span> <span class="unit">UNIT</span></p>
+      <label style="display: inline" for="multisigCheckbox">Multisig?</label>
+      <input style="display: inline" type="checkbox" id="multisigCheckbox" name="multisigCheckbox" />
+      <fieldset id="multisigConfig">
+        <legend>Configuration</legend>
+        <label for="multisigThreshold">Threshold</label>
+        <input
+          type="number"
+          id="multisigThreshold"
+          name="multisigThreshold"
+          required
+          min="2"
+          step="1"
+          value="2"
+        /><br />
+        <label for="multisigSignatories">Signatories (Excluding sender)</label>
+        <textarea name="multisigSignatories" id="multisigSignatories" rows="5" placeholder="One per line"></textarea>
+        <label for="multisigAddress">Result Address</label>
+        <input type="text" id="multisigAddress" disabled name="multisigAddress" />
+        <p>Account Balance: <span id="multisigBalance"></span> <span class="unit">UNIT</span></p>
+        <h3>Current Pending Multisigs</h3>
+        <div id="multisigPending">...</div>
+      </fieldset>
+      <label for="recipient">Recipient Address:</label>
+      <input type="text" id="recipient" name="recipient" required /><br />
+      <label for="amount">Amount: (in Planck <span class="unit">UNIT</span>s)</label>
+      <input type="number" id="amount" name="amount" required min="10000000" step="1" />
+      <p><span class="unit">UNIT</span>: <span id="unit"></span></p>
+      <label for="unlockDate">Generate Block from Date:</label>
+      <input type="date" id="unlockDate" name="unlockDate" required />
+      <label for="actualBlock">Actual Relay Chain Block:</label>
+      <a
+        target="_blank"
+        style="font-size: small; display: none"
+        href="https://polkadot.subscan.io/block/"
+        id="subscanLink"
+        >View Estimated Block on Subscan</a
+      >
+      <input type="number" id="actualBlock" name="actualBlock" min="1" step="1" required />
+      <br />
+      <span id="txProcessing" class="loader"></span>
+      <br />
+      <button type="submit" id="createTransferButton">Create Transfer</button>
     </form>
-    <div class="showConnected" style="display:none; float:left; width: 50%;">
-        <button type="button" id="copyToSpreadsheet" style="float: right; margin: 6px;">All To Clipboard</button>
-        <button type="button" id="copyToSpreadsheetLast" style="float: right; margin: 6px;">Last Tx To
-            Clipboard</button>
-        <h2>Transaction Log</h2>
-        <ul id="log"></ul>
-        <button type="button" id="clearLog">Clear</button>
+    <div class="showConnected" style="display: none; float: left; width: 50%">
+      <button type="button" id="copyToSpreadsheet" style="float: right; margin: 6px">All To Clipboard</button>
+      <button type="button" id="copyToSpreadsheetLast" style="float: right; margin: 6px">Last Tx To Clipboard</button>
+      <h2>Transaction Log</h2>
+      <ul id="log"></ul>
+      <button type="button" id="clearLog">Clear</button>
     </div>
     <script type="module" src="./main.js"></script>
-</body>
-
-
+  </body>
 </html>
